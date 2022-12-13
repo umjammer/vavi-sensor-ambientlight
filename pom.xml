@@ -2,28 +2,154 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
+
   <groupId>vavi</groupId>
   <artifactId>vavi-sensor-ambientlight</artifactId>
   <version>0.0.1</version>
+
+  <profiles>
+    <profile>
+      <!-- mvn -P run antrun:run -Dxxx='xxx' -->
+      <id>run</id>
+      <build>
+        <plugins>
+          <plugin>
+            <!-- GOOD: fork: OK, test jars: OK, user args, default args: OK -->
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-antrun-plugin</artifactId>
+            <version>3.1.0</version>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <target>
+                <java classname="Test1" fork="true">
+                  <classpath>
+                    <path refid="maven.compile.classpath"/>
+                    <path refid="maven.test.classpath"/>
+                  </classpath>
+                  <jvmarg value="-Djava.util.logging.config.file=${project.build.testOutputDirectory}/logging.properties" />
+                  <jvmarg value="-Djava.library.path=${project.build.directory}" />
+                </java>
+              </target>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+
   <build>
-    <sourceDirectory>src/main/java</sourceDirectory>
-    <testSourceDirectory>src/test/java</testSourceDirectory>
     <plugins>
       <plugin>
-        <artifactId>maven-compiler-plugin</artifactId>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>native-maven-plugin</artifactId>
+        <version>1.0-alpha-11</version>
+        <extensions>true</extensions>
         <configuration>
-          <source>1.8</source>
-          <target>1.8</target>
+          <javahClassNames>
+            <javahClassName>vavi.sensor.ambientlight.macbook.MacbookAmbientLight</javahClassName>
+          </javahClassNames>
+          <javahSearchJNIFromDependencies>false</javahSearchJNIFromDependencies>
+          <javahOS>darwin</javahOS>
+          <compilerProvider>generic-classic</compilerProvider>
+          <compilerStartOptions>
+            <compilerStartOption>-g -Wall -O2 -fomit-frame-pointer -fPIC -Wno-sign-compare</compilerStartOption>
+            <!-- unless locating jdk includes, cause error why??? -->
+            <compilerStartOption>-arch x86_64
+              -I${java.home}/../include
+              -I${java.home}/../include/darwin
+            </compilerStartOption>
+          </compilerStartOptions>
+          <sources>
+            <source>
+              <directory>src/main/native</directory>
+              <fileNames>
+                <fileName>LmuWrapper.c</fileName>
+              </fileNames>
+            </source>
+          </sources>
+          <linkerStartOptions>
+            <linkerStartOption>-dynamiclib -arch x86_64
+              -L/usr/local/lib -framework IOKit</linkerStartOption>
+          </linkerStartOptions>
+          <linkerFinalName/>
+          <linkerEndOptions>
+            <linkerEndOption>-o ${project.build.directory}/libLmuWrapper.dylib</linkerEndOption>
+          </linkerEndOptions>
+        </configuration>
+        <executions>
+          <execution>
+            <id>native</id>
+            <phase>compile</phase>
+            <goals>
+              <goal>javah</goal>
+              <goal>compile</goal>
+              <goal>link</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.10.1</version>
+        <configuration>
+          <source>8</source>
+          <target>8</target>
+          <encoding>UTF-8</encoding>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.0.0-M7</version>
+        <configuration>
+          <argLine>
+            -Djava.util.logging.config.file=${project.build.testOutputDirectory}/logging.properties
+            -Djava.library.path=${project.build.directory}
+          </argLine>
+          <trimStackTrace>false</trimStackTrace>
         </configuration>
       </plugin>
     </plugins>
   </build>
+
+  <repositories>
+    <repository>
+      <id>jitpack.io</id>
+      <url>https://jitpack.io</url>
+    </repository>
+  </repositories>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.junit</groupId>
+        <artifactId>junit-bom</artifactId>
+        <version>5.9.1</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
   <dependencies>
+
     <dependency>
-      <groupId>net.java.dev.jna</groupId>
-      <artifactId>jna</artifactId>
-      <version>3.1.0</version>
-      <optional>false</optional>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-api</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-engine</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.platform</groupId>
+      <artifactId>junit-platform-commons</artifactId>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 </project>
