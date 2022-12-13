@@ -7,6 +7,13 @@
   <artifactId>vavi-sensor-ambientlight</artifactId>
   <version>0.0.2</version>
 
+  <distributionManagement>
+    <repository>
+      <id>github</id>
+      <url>https://maven.pkg.github.com/umjammer/vavi-sensor-ambientlight</url>
+    </repository>
+  </distributionManagement>
+
   <profiles>
     <profile>
       <!-- mvn -P run antrun:run -Dxxx='xxx' -->
@@ -37,59 +44,112 @@
         </plugins>
       </build>
     </profile>
+
+    <profile>
+      <id>local (not on jitpack)</id>
+      <activation>
+        <os>
+          <family>mac</family>
+          <arch>x86_64</arch>
+        </os>
+        <property>
+          <name>env.JITPACK</name>
+          <value>!true</value>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>native-maven-plugin</artifactId>
+            <version>1.0-alpha-11</version>
+            <extensions>true</extensions>
+            <configuration>
+              <javahClassNames>
+                <javahClassName>vavi.sensor.ambientlight.macbook.MacbookAmbientLight</javahClassName>
+              </javahClassNames>
+              <javahSearchJNIFromDependencies>false</javahSearchJNIFromDependencies>
+              <javahOS>darwin</javahOS>
+              <compilerProvider>generic-classic</compilerProvider>
+              <compilerStartOptions>
+                <compilerStartOption>-g -Wall -O2 -fomit-frame-pointer -fPIC -Wno-sign-compare</compilerStartOption>
+                <!-- unless locating jdk includes, cause error why??? -->
+                <compilerStartOption>-arch x86_64
+                  -I${java.home}/../include
+                  -I${java.home}/../include/darwin
+                </compilerStartOption>
+              </compilerStartOptions>
+              <sources>
+                <source>
+                  <directory>src/main/native</directory>
+                  <fileNames>
+                    <fileName>LmuWrapper.c</fileName>
+                  </fileNames>
+                </source>
+              </sources>
+              <linkerStartOptions>
+                <linkerStartOption>-dynamiclib -arch x86_64
+                  -L/usr/local/lib -framework IOKit</linkerStartOption>
+              </linkerStartOptions>
+              <linkerFinalName/>
+              <linkerEndOptions>
+                <linkerEndOption>-o ${project.build.directory}/libLmuWrapper.dylib</linkerEndOption>
+              </linkerEndOptions>
+            </configuration>
+            <executions>
+              <execution>
+                <id>native</id>
+                <phase>compile</phase>
+                <goals>
+                  <goal>javah</goal>
+                  <goal>compile</goal>
+                  <goal>link</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+
+          <plugin>
+            <!--
+              because of maven deploy-file uploads source, jar also
+              TODO maven-metadata.xml!/metadata/versioning/latest is not updated
+              TODO how about https://stackoverflow.com/a/37552776/6102938
+             -->
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>1.6.0</version>
+            <executions>
+              <execution>
+                <id>deploy-library</id>
+                <phase>deploy</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+              </execution>
+            </executions>
+            <configuration>
+              <executable>mvn</executable>
+              <arguments>
+                <argument>deploy:deploy-file</argument>
+                <argument>-DgroupId=${project.groupId}</argument>
+                <argument>-DartifactId=vavi-sensor-ambientlight</argument>
+                <argument>-Dversion=${project.version}</argument>
+                <argument>-Dpackaging=dylib</argument>
+                <argument>-Dfile=${project.build.directory}/libLmuWrapper.dylib</argument>
+                <argument>-DrepositoryId=github</argument>
+                <argument>-Durl=https://maven.pkg.github.com/umjammer/vavi-sensor-ambientlight</argument>
+                <argument>-s</argument>
+                <argument>${env.GITHUB_WORKSPACE}/settings.xml</argument>
+              </arguments>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
   </profiles>
 
   <build>
     <plugins>
-      <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>native-maven-plugin</artifactId>
-        <version>1.0-alpha-11</version>
-        <extensions>true</extensions>
-        <configuration>
-          <javahClassNames>
-            <javahClassName>vavi.sensor.ambientlight.macbook.MacbookAmbientLight</javahClassName>
-          </javahClassNames>
-          <javahSearchJNIFromDependencies>false</javahSearchJNIFromDependencies>
-          <javahOS>darwin</javahOS>
-          <compilerProvider>generic-classic</compilerProvider>
-          <compilerStartOptions>
-            <compilerStartOption>-g -Wall -O2 -fomit-frame-pointer -fPIC -Wno-sign-compare</compilerStartOption>
-            <!-- unless locating jdk includes, cause error why??? -->
-            <compilerStartOption>-arch x86_64
-              -I${java.home}/../include
-              -I${java.home}/../include/darwin
-            </compilerStartOption>
-          </compilerStartOptions>
-          <sources>
-            <source>
-              <directory>src/main/native</directory>
-              <fileNames>
-                <fileName>LmuWrapper.c</fileName>
-              </fileNames>
-            </source>
-          </sources>
-          <linkerStartOptions>
-            <linkerStartOption>-dynamiclib -arch x86_64
-              -L/usr/local/lib -framework IOKit</linkerStartOption>
-          </linkerStartOptions>
-          <linkerFinalName/>
-          <linkerEndOptions>
-            <linkerEndOption>-o ${project.build.directory}/libLmuWrapper.dylib</linkerEndOption>
-          </linkerEndOptions>
-        </configuration>
-        <executions>
-          <execution>
-            <id>native</id>
-            <phase>compile</phase>
-            <goals>
-              <goal>javah</goal>
-              <goal>compile</goal>
-              <goal>link</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
@@ -100,6 +160,16 @@
           <encoding>UTF-8</encoding>
         </configuration>
       </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-deploy-plugin</artifactId>
+        <version>3.0.0-M2</version>
+        <configuration>
+          <skip>true</skip>
+        </configuration>
+      </plugin>
+
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
